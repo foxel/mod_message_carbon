@@ -1,11 +1,13 @@
 %%% -------------------------------------------------------------------
 %%% Author      : Abhinav Singh <mailsforabhinav@gmail.com>
 %%% Created     : Sep 26, 2012 by Abhinav Singh <mailsforabhinav@gmail.com>
+%%% Mods        : Oct 17, 2014 by Andrey F. Kupreychik <foxel@quickfox.ru>
 %%% Description : XEP-0280 Message Carbon Ejabberd Module
+%%% Link        : https://github.com/foxel/mod_message_carbon
 %%% -------------------------------------------------------------------
 
 -module(mod_message_carbon).
--author('mailsforabhinav@gmail.com').
+-author('foxel@quickfox.ru').
 
 -behaviour(gen_mod).
 
@@ -31,6 +33,7 @@
 %% ====================================================================
 -export([start/2, stop/1]).
 -export([process_carbon_iq/3, filter_packet/1, on_unavailable/4]).
+-export([enable_carbons/1, disable_carbons/1]).
 
 -spec start(host(), opts()) -> ok.
 start(Host, Opts) ->
@@ -59,11 +62,17 @@ on_unavailable(User, Server, Resource, _Priority) ->
 	none.
 
 process_carbon_iq(From, _To, #iq{type = set, sub_el = {xmlelement, "enable", _, _}} = IQ) ->
-	ok = mnesia:dirty_write(#carbon{jid = {From#jid.luser, From#jid.lserver}, res = From#jid.lresource}),
+	ok = enable_carbons(From),
 	IQ#iq{type = result, sub_el = []};
 process_carbon_iq(From, _To, #iq{type = set, sub_el = {xmlelement, "disable", _, _}} = IQ) ->
-	ok = mnesia:dirty_delete_object(#carbon{jid = {From#jid.luser, From#jid.lserver}, res = From#jid.lresource}),
+	ok = disable_carbons(From),
 	IQ#iq{type = result, sub_el = []}.
+
+enable_carbons(From) ->
+  mnesia:dirty_write(#carbon{jid = {From#jid.luser, From#jid.lserver}, res = From#jid.lresource}).
+
+disable_carbons(From) ->
+  mnesia:dirty_delete_object(#carbon{jid = {From#jid.luser, From#jid.lserver}, res = From#jid.lresource}).
 
 filter_packet({From, To, {xmlelement, "message", _, _} = Pkt}) ->
 	case xml:get_tag_attr_s("type", Pkt) of
